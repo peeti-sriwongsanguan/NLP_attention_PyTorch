@@ -1,14 +1,12 @@
 import pandas as pd
-import nltk
-from nltk.corpus import stopwords
 import re
+from nltk.corpus import stopwords
+import nltk
 
-# Download NLTK data
 nltk.download('stopwords', quiet=True)
 stop_words = set(stopwords.words('english'))
 
 def remove_tags(text):
-    # Remove HTML tags
     cleaned_text = re.sub('<[^<]+?>', '', str(text))
     return cleaned_text
 
@@ -24,5 +22,6 @@ def balance_dataset(df):
     return df.groupby(['positive']).apply(lambda x: x.sample(max_cnt, random_state=42)).reset_index(drop=True)
 
 def preprocess_text(df):
-    df['reviewText'] = df['reviewText'].apply(lambda x: ' '.join([word for word in str(x).split() if word.lower() not in stop_words]))
+    df['reviewText'] = df['reviewText'].apply(lambda x: ' '.join([word.lower() for word in str(x).split() if word.lower() not in stop_words and word.isalnum()]))
+    df = df[df['reviewText'].str.strip() != '']  # Remove empty reviews
     return df

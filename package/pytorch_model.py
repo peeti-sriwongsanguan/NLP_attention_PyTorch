@@ -16,6 +16,7 @@ class LSTMClassifier(nn.Module):
                             batch_first=True)
         self.fc = nn.Linear(hidden_dim * 2 if bidirectional else hidden_dim, output_dim)
         self.dropout = nn.Dropout(dropout)
+        self.layer_norm = nn.LayerNorm(hidden_dim * 2 if bidirectional else hidden_dim)
 
     def forward(self, text, text_lengths):
         embedded = self.dropout(self.embedding(text))
@@ -25,14 +26,18 @@ class LSTMClassifier(nn.Module):
         embedded = embedded[sort_idx]
 
         # Pack the sorted sequences
-        packed_embedded = pack_padded_sequence(embedded, text_lengths.cpu(), batch_first=True)
+        packed_embedded = pack_padded_sequence(embedded, text_lengths.to('cpu'), batch_first=True)
 
         packed_output, (hidden, cell) = self.lstm(packed_embedded)
 
         if self.lstm.bidirectional:
-            hidden = self.dropout(torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1))
+            hidden = torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1)
         else:
-            hidden = self.dropout(hidden[-1, :, :])
+            hidden = hidden[-1, :, :]
+
+        # Apply layer normalization and dropout
+        hidden = self.layer_norm(hidden)
+        hidden = self.dropout(hidden)
 
         # Unsort the sequences
         _, unsort_idx = sort_idx.sort()
