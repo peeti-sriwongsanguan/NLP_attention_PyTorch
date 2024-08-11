@@ -18,6 +18,9 @@ else:
 
 print(f"Using device: {device}")
 
+def is_nan(value):
+    return value != value
+
 @timing_decorator
 def train(model, iterator, optimizer, criterion, clip):
     model.train()
@@ -27,6 +30,8 @@ def train(model, iterator, optimizer, criterion, clip):
         text, text_lengths = batch[0].to(device), batch[1].to(device)
         predictions = model(text, text_lengths).squeeze(1)
         loss = criterion(predictions, batch[2].to(device))
+        if is_nan(loss.item()):
+            return float('nan')
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         optimizer.step()
@@ -42,6 +47,8 @@ def evaluate(model, iterator, criterion):
             text, text_lengths = batch[0].to(device), batch[1].to(device)
             predictions = model(text, text_lengths).squeeze(1)
             loss = criterion(predictions, batch[2].to(device))
+            if is_nan(loss.item()):
+                return float('nan')
             epoch_loss += loss.item()
     return epoch_loss / len(iterator)
 
@@ -98,15 +105,24 @@ def main():
 
     for epoch in range(n_epochs):
         train_loss = train(model, train_iterator, optimizer, criterion, clip)
+        if is_nan(train_loss):
+            print(f"NaN encountered during training at epoch {epoch + 1}. Stopping early.")
+            break
         test_loss = evaluate(model, test_iterator, criterion)
+        if is_nan(test_loss):
+            print(f"NaN encountered during evaluation at epoch {epoch + 1}. Stopping early.")
+            break
         scheduler.step(test_loss)
         print(f'Epoch: {epoch + 1:02}')
         print(f'\tTrain Loss: {train_loss:.3f}')
         print(f'\t Test Loss: {test_loss:.3f}')
-
-    test_loss = evaluate(model, test_iterator, criterion)
-    print(f'Final Test Loss: {test_loss:.3f}')
-
+    else:
+        # This block executes if the loop completes without breaking
+        final_test_loss = evaluate(model, test_iterator, criterion)
+        if not is_nan(final_test_loss):
+            print(f'Final Test Loss: {final_test_loss:.3f}')
+        else:
+            print("NaN encountered during final evaluation.")
 
 if __name__ == "__main__":
     main()
