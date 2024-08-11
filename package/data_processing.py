@@ -16,7 +16,7 @@ def load_and_preprocess_data(dataframe_path):
     df = pd.read_json(dataframe_path, lines=True)
     df['positive'] = df.overall.apply(lambda x: 1 if x >= 4 else 0)
     review_df = df[['reviewText', 'positive']]
-    review_df['reviewText'] = review_df['reviewText'].apply(remove_tags)
+    review_df = review_df.assign(reviewText=review_df['reviewText'].apply(remove_tags))
     return review_df
 
 def balance_dataset(df):

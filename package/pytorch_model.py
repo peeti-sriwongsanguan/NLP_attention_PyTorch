@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
+
 class LSTMClassifier(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, n_layers, bidirectional, dropout):
         super().__init__()
@@ -18,14 +19,24 @@ class LSTMClassifier(nn.Module):
 
     def forward(self, text, text_lengths):
         embedded = self.dropout(self.embedding(text))
-        packed_embedded = pack_padded_sequence(embedded, text_lengths.to('cpu'), batch_first=True, enforce_sorted=False)
+
+        # Sort the sequences by length in descending order
+        text_lengths, sort_idx = text_lengths.sort(descending=True)
+        embedded = embedded[sort_idx]
+
+        # Pack the sorted sequences
+        packed_embedded = pack_padded_sequence(embedded, text_lengths.cpu(), batch_first=True)
+
         packed_output, (hidden, cell) = self.lstm(packed_embedded)
-        output, output_lengths = pad_packed_sequence(packed_output, batch_first=True)
 
         if self.lstm.bidirectional:
             hidden = self.dropout(torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1))
         else:
             hidden = self.dropout(hidden[-1, :, :])
+
+        # Unsort the sequences
+        _, unsort_idx = sort_idx.sort()
+        hidden = hidden[unsort_idx]
 
         return self.fc(hidden)
 
@@ -35,8 +46,8 @@ def build_model(vocab_size, embedding_dim=100, hidden_dim=256, output_dim=1, n_l
     return LSTMClassifier(vocab_size, embedding_dim, hidden_dim, output_dim, n_layers, bidirectional, dropout)
 
 
-def tokenize_and_pad(texts, tokenizer, max_length):
-    tokenized = [tokenizer(text) for text in texts]
-    lengths = torch.LongTensor([len(t) for t in tokenized])
-    padded = [t[:max_length] + ['<pad>'] * (max_length - len(t)) for t in tokenized]
+def tokenize_and_pad(texts, word_to_idx, max_length):
+    tokenized = [[word_to_idx.get(word, word_to_idx['<unk>']) for word in text.split()] for text in texts]
+    lengths = [min(len(t), max_length) for t in tokenized]
+    padded = [t[:max_length] + [word_to_idx['<pad>']] * (max_length - len(t)) for t in tokenized]
     return padded, lengths
