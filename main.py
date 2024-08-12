@@ -5,9 +5,9 @@ import torch.nn as nn
 import torch.optim as optim
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
-from package.data_processing import load_and_preprocess_data, balance_dataset, preprocess_text
-from package.pytorch_model import build_model, tokenize_and_pad
-from package.time_record import timing_decorator
+from src.data_processing import load_and_preprocess_data, balance_dataset, preprocess_text
+from src.pytorch_model import build_model, tokenize_and_pad
+from src.time_record import timing_decorator
 
 if torch.backends.mps.is_available():
     device = torch.device("mps")
